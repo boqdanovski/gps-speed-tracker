@@ -56,7 +56,53 @@ class handler(BaseHTTPRequestHandler):
 
         print(f'💾 Данные от {device_name} сохранены.')
 
+    def handle_file_download(self):
+        """Обработка скачивания файлов"""
+        try:
+            # Извлекаем имя файла из пути
+            filename = self.path.replace('/download/', '')
+            
+            # Проверяем, что файл существует в нашей директории
+            if not filename.startswith('device_') and filename != 'all_devices.txt':
+                self.send_error(404, "File not found")
+                return
+                
+            filepath = os.path.join(DATA_DIR, filename)
+            
+            if not os.path.exists(filepath):
+                self.send_error(404, "File not found")
+                return
+                
+            # Читаем файл
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Определяем тип контента
+            if filename.endswith('.txt'):
+                content_type = 'text/plain; charset=utf-8'
+            else:
+                content_type = 'application/octet-stream'
+            
+            # Отправляем файл
+            self.send_response(200)
+            self.send_header('Content-Type', content_type)
+            self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            self.wfile.write(content.encode('utf-8'))
+            
+            print(f'📥 Файл {filename} отправлен для скачивания')
+            
+        except Exception as e:
+            print(f'❌ Ошибка при скачивании файла: {e}')
+            self.send_error(500, "Internal server error")
+
     def do_GET(self):
+        # Проверяем, запрашивается ли конкретный файл
+        if self.path.startswith('/download/'):
+            self.handle_file_download()
+            return
+            
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -65,7 +111,7 @@ class handler(BaseHTTPRequestHandler):
         html_content = f'''<!DOCTYPE html>
 <html>
 <head>
-    <title>GPS Speed Tracker - All Devices</title>
+    <title>⛵ 69F СКОРОСТЬ - Все устройства</title>
     <meta http-equiv="refresh" content="5">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -164,8 +210,8 @@ class handler(BaseHTTPRequestHandler):
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚗 GPS Speed Tracker</h1>
-            <p>Мониторинг скорости всех устройств</p>
+            <h1>⛵ 69F СКОРОСТЬ</h1>
+            <p>Отслеживание скорости всех устройств</p>
         </div>
         <div class="content">
             <div class="status">
@@ -188,11 +234,16 @@ class handler(BaseHTTPRequestHandler):
                         speed = f.read().strip()
                     device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
                     last_update = datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%Y-%m-%d %H:%M:%S')
+                    safe_name = device_name.replace(' ', '_')
                     html_content += f'''
                     <div class="device-card">
                         <h2>📱 Устройство: {device_name}</h2>
                         <div class="speed">{speed} км/ч</div>
                         <div class="timestamp">Последнее обновление: {last_update}</div>
+                        <div style="margin-top: 10px;">
+                            <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость</a>
+                            <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none;">📊 История</a>
+                        </div>
                     </div>
                     '''
                 except Exception as e:
@@ -202,6 +253,9 @@ class handler(BaseHTTPRequestHandler):
         html_content += '''
             <div class="log-section">
                 <h2>📋 Общий лог всех устройств</h2>
+                <div style="margin-bottom: 15px;">
+                    <a href="/download/all_devices.txt" style="color: #dc3545; text-decoration: none; font-weight: bold;">📥 Скачать полный лог</a>
+                </div>
                 <div class="log-content">
 '''
         if os.path.exists(ALL_DEVICES_FILE):
