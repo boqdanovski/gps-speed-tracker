@@ -17,10 +17,13 @@ class handler(BaseHTTPRequestHandler):
         if client_ip == 'unknown':
             client_ip = self.headers.get('X-Real-IP', 'unknown')
         
+        # Получаем название устройства из заголовка или используем IP
+        device_name = self.headers.get('X-Device-Name', client_ip)
+        
         # Заменяем точки на подчеркивания для имени файла
-        safe_ip = client_ip.replace('.', '_')
-        device_file = os.path.join(DATA_DIR, f'device_{safe_ip}.txt')
-        device_log_file = os.path.join(DATA_DIR, f'device_{safe_ip}_log.txt')
+        safe_name = device_name.replace('.', '_').replace(':', '_').replace(' ', '_')
+        device_file = os.path.join(DATA_DIR, f'device_{safe_name}.txt')
+        device_log_file = os.path.join(DATA_DIR, f'device_{safe_name}_log.txt')
 
         # Читаем данные
         content_length = int(self.headers['Content-Length'])
@@ -30,7 +33,7 @@ class handler(BaseHTTPRequestHandler):
         now = datetime.now()
         timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
 
-        print(f'📥 Получена скорость от {client_ip}: {speed_data} км/ч в {timestamp}')
+        print(f'📥 Получена скорость от {device_name} ({client_ip}): {speed_data} км/ч в {timestamp}')
 
         # Сохраняем текущую скорость
         with open(device_file, 'w') as f:
@@ -42,16 +45,16 @@ class handler(BaseHTTPRequestHandler):
 
         # Добавляем в общий лог
         with open(ALL_DEVICES_FILE, 'a') as f:
-            f.write(f'{timestamp} - {client_ip} - {speed_data} км/ч\n')
+            f.write(f'{timestamp} - {device_name} ({client_ip}) - {speed_data} км/ч\n')
 
         # Отправляем ответ
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
-        self.wfile.write(f'Speed updated for device_{safe_ip}: {speed_data} km/h'.encode())
+        self.wfile.write(f'Speed updated for {device_name}: {speed_data} km/h'.encode())
 
-        print(f'💾 Данные от {client_ip} сохранены.')
+        print(f'💾 Данные от {device_name} сохранены.')
 
     def do_GET(self):
         self.send_response(200)
@@ -183,11 +186,11 @@ class handler(BaseHTTPRequestHandler):
                 try:
                     with open(filepath, 'r') as f:
                         speed = f.read().strip()
-                    device_ip = filename.replace('device_', '').replace('.txt', '').replace('_', '.')
+                    device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
                     last_update = datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%Y-%m-%d %H:%M:%S')
                     html_content += f'''
                     <div class="device-card">
-                        <h2>📱 Устройство: {device_ip}</h2>
+                        <h2>📱 Устройство: {device_name}</h2>
                         <div class="speed">{speed} км/ч</div>
                         <div class="timestamp">Последнее обновление: {last_update}</div>
                     </div>
@@ -228,5 +231,5 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, X-Device-Name')
         self.end_headers()
