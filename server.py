@@ -17,25 +17,45 @@ def get_moscow_time():
     return datetime.now(moscow_tz)
 
 def create_excel_file():
-    """Создает Excel файл с данными о скорости всех устройств"""
+    """Создает или обновляет Excel файл с данными о скорости всех устройств"""
     try:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "GPS Speed Data"
+        excel_file = os.path.join(DATA_DIR, 'gps_speed_data.xlsx')
         
-        # Заголовки
-        headers = ["Устройство", "Скорость (км/ч)", "Время"]
-        for col, header in enumerate(headers, 1):
-            cell = ws.cell(row=1, column=col, value=header)
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
-            cell.alignment = Alignment(horizontal="center")
+        # Проверяем, существует ли файл
+        if os.path.exists(excel_file):
+            from openpyxl import load_workbook
+            wb = load_workbook(excel_file)
+            ws = wb.active
+        else:
+            # Создаем новый файл
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "GPS Speed Data"
+            
+            # Заголовки
+            headers = ["Устройство", "Скорость (км/ч)", "Время"]
+            for col, header in enumerate(headers, 1):
+                cell = ws.cell(row=1, column=col, value=header)
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+                cell.alignment = Alignment(horizontal="center")
+            
+            # Настройка ширины колонок
+            ws.column_dimensions['A'].width = 20
+            ws.column_dimensions['B'].width = 15
+            ws.column_dimensions['C'].width = 12
         
         # Получаем все файлы устройств
         device_files = []
         if os.path.exists(DATA_DIR):
             device_files = [f for f in os.listdir(DATA_DIR) if f.startswith('device_') and f.endswith('.txt') and not f.endswith('_log.txt')]
         
+        # Очищаем старые данные (кроме заголовков)
+        if ws.max_row > 1:
+            for row in range(ws.max_row, 1, -1):
+                ws.delete_rows(row)
+        
+        # Заполняем данными
         row = 2
         for filename in sorted(device_files):
             device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
@@ -62,35 +82,16 @@ def create_excel_file():
                     ws.cell(row=row, column=2, value=float(speed) if speed.replace('.', '').isdigit() else speed)
                     ws.cell(row=row, column=3, value=time_only)
                     
-                    # Цветовая кодировка по скорости
-                    if speed.replace('.', '').isdigit():
-                        speed_val = float(speed)
-                        if speed_val > 50:
-                            fill_color = "FF6B6B"  # Красный для высокой скорости
-                        elif speed_val > 20:
-                            fill_color = "FFE66D"  # Желтый для средней скорости
-                        else:
-                            fill_color = "4ECDC4"  # Зеленый для низкой скорости
-                        
-                        for col in range(1, 4):
-                            ws.cell(row=row, column=col).fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
-                    
                     row += 1
                     
             except Exception as e:
                 print(f"Ошибка обработки файла {filename}: {e}")
                 continue
         
-        # Настройка ширины колонок
-        ws.column_dimensions['A'].width = 20
-        ws.column_dimensions['B'].width = 15
-        ws.column_dimensions['C'].width = 12
-        
         # Сохраняем файл
-        excel_file = os.path.join(DATA_DIR, 'gps_speed_data.xlsx')
         wb.save(excel_file)
         
-        print(f"✅ Excel файл создан: {excel_file}")
+        print(f"✅ Excel файл обновлен: {excel_file}")
         return excel_file
         
     except Exception as e:
@@ -129,6 +130,12 @@ class handler(BaseHTTPRequestHandler):
 
         with open(ALL_DEVICES_FILE, 'a') as f:
             f.write(f'{timestamp} - {device_name} ({client_ip}) - {speed_data} км/ч\n')
+
+        # Обновляем Excel файл
+        try:
+            create_excel_file()
+        except Exception as e:
+            print(f"⚠️ Ошибка обновления Excel: {e}")
 
         # Отправляем ответ
         self.send_response(200)
@@ -584,7 +591,6 @@ class handler(BaseHTTPRequestHandler):
             <div style="margin-top: 15px;">
                 <a href="/cleanup" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🧹 Очистить старые данные</a>
                 <a href="/restart_tracking" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🔄 Перезапустить Tracking</a>
-                <a href="/create_excel" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">📊 Создать Excel</a>
                 <a href="/download/all_devices.txt" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">📥 Скачать все данные</a>
                 <a href="/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📱 Скачать APK</a>
             </div>
@@ -628,12 +634,12 @@ class handler(BaseHTTPRequestHandler):
                     <!-- Excel файл -->
                     <div style="margin-bottom: 25px; padding: 15px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #4caf50;">
                         <h3 style="margin: 0 0 10px 0; color: #2e7d32;">📊 Excel отчет</h3>
-                        <p style="margin: 5px 0; color: #666;">Данные о скорости в формате Excel с цветовой кодировкой</p>
-                        <a href="/create_excel" 
+                        <p style="margin: 5px 0; color: #666;">Excel файл обновляется в реальном времени при получении данных</p>
+                        <a href="/download/gps_speed_data.xlsx" 
                            style="display: inline-block; background: #4caf50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
-                            📊 Создать Excel отчет
+                            📊 Скачать Excel файл
                         </a>
-                        <span style="color: #666; font-size: 0.9em;">Устройство, скорость, время</span>
+                        <span style="color: #666; font-size: 0.9em;">Устройство, скорость, время (чистые данные без цветов)</span>
                     </div>
                     
                     <!-- Служебные файлы -->
