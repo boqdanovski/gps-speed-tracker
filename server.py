@@ -201,7 +201,6 @@ class handler(BaseHTTPRequestHandler):
                         data_timestamp = "Неизвестно"
                     
                     device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
-                    last_update = datetime.fromtimestamp(os.path.getmtime(filepath), tz=pytz.timezone('Europe/Moscow')).strftime('%Y-%m-%d %H:%M:%S')
                     safe_name = device_name.replace(' ', '_')
                     
                     current_time = get_moscow_time()
@@ -223,10 +222,7 @@ class handler(BaseHTTPRequestHandler):
                         <div style="color: {status_color}; font-weight: bold; margin-bottom: 10px;">{status_text}</div>
                         <div style="font-size: 2em; font-weight: bold; color: #28a745; margin: 10px 0;">{speed_display}</div>
                         <div style="font-size: 0.9em; color: #6c757d; margin: 5px 0;">
-                            ⏰ Время отправки: {data_timestamp}
-                        </div>
-                        <div style="font-size: 0.9em; color: #6c757d; margin: 5px 0;">
-                            📁 Обновление файла: {last_update}
+                            ⏰ Последние данные: {data_timestamp} (МСК)
                         </div>
                         <div style="margin-top: 10px;">
                             <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость</a>
