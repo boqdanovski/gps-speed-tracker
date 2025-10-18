@@ -187,7 +187,10 @@ class handler(BaseHTTPRequestHandler):
                         <div>Последнее обновление: {last_update}</div>
                         <div style="margin-top: 10px;">
                             <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость</a>
-                            <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none;">📊 История</a>
+                            <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none; margin-right: 15px;">📊 История</a>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 0.9em; color: #6c757d;">
+                            📁 Файл скорости: <code>https://gps-speed-tracker.vercel.app/download/device_{safe_name}.txt</code>
                         </div>
                     </div>
                     '''
@@ -214,18 +217,59 @@ class handler(BaseHTTPRequestHandler):
             <h1>⛵ 69F СКОРОСТЬ</h1>
             <p>Отслеживание скорости всех устройств</p>
             <div style="margin-top: 15px;">
-                <a href="/cleanup" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">🧹 Очистить старые данные</a>
+                <a href="/cleanup" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🧹 Очистить старые данные</a>
+                <a href="/download/all_devices.txt" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📥 Скачать все данные</a>
             </div>
         </div>
         <div class="content">
             <div class="status">Обновлено: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
             {devices_html}
+            
+            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 30px;">
+                <h2>📁 Прямые ссылки на файлы</h2>
+                <div style="font-family: 'Courier New', monospace; font-size: 0.9em; background: white; padding: 15px; border-radius: 4px;">
+                    <div style="margin-bottom: 10px;"><strong>Общий лог всех устройств:</strong></div>
+                    <div style="color: #007bff; word-break: break-all;">https://gps-speed-tracker.vercel.app/download/all_devices.txt</div>
+                    
+                    <div style="margin: 20px 0 10px 0;"><strong>Файлы отдельных устройств:</strong></div>
+                    {self.get_device_links_html()}
+                </div>
+            </div>
         </div>
     </div>
 </body>
 </html>'''
         
         self.wfile.write(html_content.encode('utf-8'))
+
+    def get_device_links_html(self):
+        """Генерирует HTML со ссылками на файлы устройств"""
+        try:
+            device_files = []
+            if os.path.exists(DATA_DIR):
+                device_files = [f for f in os.listdir(DATA_DIR) if f.startswith('device_') and f.endswith('.txt') and not f.endswith('_log.txt')]
+            
+            if not device_files:
+                return '<div style="color: #6c757d; font-style: italic;">Нет файлов устройств</div>'
+            
+            links_html = ""
+            for filename in sorted(device_files):
+                device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
+                safe_name = device_name.replace(' ', '_')
+                
+                links_html += f'''
+                <div style="margin-bottom: 8px;">
+                    <strong>{device_name}:</strong><br>
+                    <div style="color: #007bff; word-break: break-all; margin-left: 10px;">
+                        📄 Скорость: https://gps-speed-tracker.vercel.app/download/device_{safe_name}.txt<br>
+                        📊 История: https://gps-speed-tracker.vercel.app/download/device_{safe_name}_log.txt
+                    </div>
+                </div>
+                '''
+            
+            return links_html
+        except Exception as e:
+            return f'<div style="color: #dc3545;">Ошибка: {e}</div>'
 
     def do_OPTIONS(self):
         self.send_response(200)
