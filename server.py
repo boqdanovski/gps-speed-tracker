@@ -509,6 +509,7 @@ class handler(BaseHTTPRequestHandler):
                         <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
                             <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; padding: 8px 12px; background: #e3f2fd; border-radius: 5px; font-size: 0.9em;">📄 Текущая скорость</a>
                             <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none; padding: 8px 12px; background: #e8f5e8; border-radius: 5px; font-size: 0.9em;">📊 История</a>
+                            <a href="/download/gps_speed_data.xlsx" style="color: #9c27b0; text-decoration: none; padding: 8px 12px; background: #f3e5f5; border-radius: 5px; font-size: 0.9em;">📊 Excel</a>
                         </div>
                         <div style="margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #dee2e6; border-radius: 5px;">
                             <div style="font-size: 0.9em; color: #495057; margin-bottom: 8px;">📋 Копировать ссылки:</div>
@@ -520,6 +521,10 @@ class handler(BaseHTTPRequestHandler):
                                 <button onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/device_{safe_name}_log.txt')" 
                                         style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
                                     📊 Скопировать ссылку на историю
+                                </button>
+                                <button onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/gps_speed_data.xlsx')" 
+                                        style="background: #9c27b0; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                    📊 Скопировать ссылку на Excel
                                 </button>
                             </div>
                         </div>
@@ -696,6 +701,10 @@ class handler(BaseHTTPRequestHandler):
                         <a href="/download/device_{safe_name}_log.txt" 
                            style="display: inline-block; background: #8bc34a; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 0.9em;">
                             📊 История данных
+                        </a>
+                        <a href="/download/gps_speed_data.xlsx" 
+                           style="display: inline-block; background: #9c27b0; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 0.9em;">
+                            📊 Excel файл
                         </a>
                     </div>
                     <div style="margin-top: 8px; color: #666; font-size: 0.8em;">
