@@ -261,8 +261,15 @@ class handler(BaseHTTPRequestHandler):
         try:
             # Создаем специальный файл-сигнал для перезапуска
             restart_file = os.path.join(DATA_DIR, 'restart_signal.txt')
+            current_time = get_moscow_time()
+            
             with open(restart_file, 'w') as f:
-                f.write(f"RESTART_TRACKING\n{get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')}")
+                f.write(f"RESTART_TRACKING\n{current_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"COMMAND_ID:{int(current_time.timestamp())}\n")
+                f.write(f"FORCE_RESTART:true\n")
+            
+            print(f"🔄 Создан файл-сигнал перезапуска: {restart_file}")
+            print(f"🔄 Время создания: {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
             
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
@@ -338,22 +345,31 @@ class handler(BaseHTTPRequestHandler):
         <div class="content">
             <div class="success">
                 ✅ <strong>Команда перезапуска отправлена!</strong><br>
-                Время: {get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')} (МСК)
+                Время: {current_time.strftime('%Y-%m-%d %H:%M:%S')} (МСК)<br>
+                ID команды: {int(current_time.timestamp())}
             </div>
             
             <div class="info">
                 <h3>📱 Что происходит:</h3>
                 <ul>
-                    <li>Создан файл-сигнал для перезапуска</li>
-                    <li>Приложения проверят этот файл при следующей отправке</li>
-                    <li>Tracking будет автоматически перезапущен</li>
-                    <li>Новые данные появятся через 1-2 минуты</li>
+                    <li>✅ Создан файл-сигнал для перезапуска</li>
+                    <li>⏰ Приложения проверят файл каждые 30 секунд</li>
+                    <li>🔄 Tracking будет автоматически перезапущен</li>
+                    <li>📊 Новые данные появятся через 30-60 секунд</li>
+                    <li>🔍 Проверьте логи приложения для подтверждения</li>
                 </ul>
             </div>
             
             <div class="info">
                 <h3>🔗 Файл-сигнал:</h3>
-                <code>https://gps-speed-tracker.vercel.app/download/restart_signal.txt</code>
+                <p><code>https://gps-speed-tracker.vercel.app/download/restart_signal.txt</code></p>
+                <p><strong>Содержимое:</strong></p>
+                <pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 0.9em;">
+RESTART_TRACKING
+{current_time.strftime('%Y-%m-%d %H:%M:%S')}
+COMMAND_ID:{int(current_time.timestamp())}
+FORCE_RESTART:true
+                </pre>
             </div>
             
             <a href="/" class="back-link">← Вернуться к мониторингу</a>
