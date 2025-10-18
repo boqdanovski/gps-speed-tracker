@@ -121,7 +121,7 @@ class handler(BaseHTTPRequestHandler):
 <html>
 <head>
     <title>⛵ 69F СКОРОСТЬ - Все устройства</title>
-    <meta http-equiv="refresh" content="2">
+    <meta http-equiv="refresh" content="1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {{ 
@@ -244,10 +244,27 @@ class handler(BaseHTTPRequestHandler):
                     device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
                     last_update = datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%Y-%m-%d %H:%M:%S')
                     safe_name = device_name.replace(' ', '_')
+                    
+                    # Проверяем, как давно было последнее обновление
+                    current_time = datetime.now()
+                    last_update_time = datetime.fromtimestamp(os.path.getmtime(filepath))
+                    time_diff = (current_time - last_update_time).total_seconds()
+                    
+                    # Если прошло больше 10 секунд - показываем "Device not Tracking"
+                    if time_diff > 10:
+                        status_text = "🔴 Device not Tracking"
+                        status_color = "#dc3545"
+                        speed_display = "—"
+                    else:
+                        status_text = "🟢 Device Tracking"
+                        status_color = "#28a745"
+                        speed_display = f"{speed} км/ч"
+                    
                     html_content += f'''
                     <div class="device-card">
                         <h2>📱 Устройство: {device_name}</h2>
-                        <div class="speed">{speed} км/ч</div>
+                        <div style="color: {status_color}; font-weight: bold; margin-bottom: 10px;">{status_text}</div>
+                        <div class="speed">{speed_display}</div>
                         <div class="timestamp">Последнее обновление: {last_update}</div>
                         <div style="margin-top: 10px;">
                             <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость (обновляется каждую секунду)</a>
