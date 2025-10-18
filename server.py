@@ -611,23 +611,19 @@ class handler(BaseHTTPRequestHandler):
                     <!-- APK файл -->
                     <div style="margin-bottom: 25px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
                         <h3 style="margin: 0 0 10px 0; color: #1976d2;">📱 Android приложение</h3>
-                        <p style="margin: 5px 0; color: #666;">GPS Speed 69F v3.0 с удаленным перезапуском</p>
                         <a href="/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk" 
                            style="display: inline-block; background: #2196f3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
                             📥 Скачать APK
                         </a>
-                        <span style="color: #666; font-size: 0.9em;">Размер: 4.7 MB</span>
                     </div>
                     
                     <!-- Общий лог -->
                     <div style="margin-bottom: 25px; padding: 15px; background: #f3e5f5; border-radius: 8px; border-left: 4px solid #9c27b0;">
                         <h3 style="margin: 0 0 10px 0; color: #7b1fa2;">📋 Общий лог всех устройств</h3>
-                        <p style="margin: 5px 0; color: #666;">Все данные о скорости в одном файле</p>
                         <a href="/download/all_devices.txt" 
                            style="display: inline-block; background: #9c27b0; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
                             📥 Скачать лог
                         </a>
-                        <span style="color: #666; font-size: 0.9em;">Формат: текст</span>
                     </div>
                     
                     <!-- Файлы устройств -->
@@ -639,12 +635,10 @@ class handler(BaseHTTPRequestHandler):
                     <!-- Excel файл -->
                     <div style="margin-bottom: 25px; padding: 15px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #4caf50;">
                         <h3 style="margin: 0 0 10px 0; color: #2e7d32;">📊 Excel отчет</h3>
-                        <p style="margin: 5px 0; color: #666;">Excel файл обновляется в реальном времени при получении данных</p>
                         <a href="/download/gps_speed_data.xlsx" 
                            style="display: inline-block; background: #4caf50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
                             📊 Скачать Excel файл
                         </a>
-                        <span style="color: #666; font-size: 0.9em;">Устройство, скорость, время (чистые данные без цветов)</span>
                     </div>
                     
                     <!-- Служебные файлы -->
