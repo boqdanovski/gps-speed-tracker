@@ -35,9 +35,9 @@ class handler(BaseHTTPRequestHandler):
 
         print(f'📥 Получена скорость от {device_name} ({client_ip}): {speed_data} км/ч в {timestamp}')
 
-        # Сохраняем текущую скорость
+        # Перезаписываем файл с текущей скоростью (каждую секунду)
         with open(device_file, 'w') as f:
-            f.write(speed_data + '\n')
+            f.write(speed_data)  # Только скорость, без переноса строки
 
         # Добавляем в лог
         with open(device_log_file, 'a') as f:
@@ -241,8 +241,11 @@ class handler(BaseHTTPRequestHandler):
                         <div class="speed">{speed} км/ч</div>
                         <div class="timestamp">Последнее обновление: {last_update}</div>
                         <div style="margin-top: 10px;">
-                            <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость</a>
+                            <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость (обновляется каждую секунду)</a>
                             <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none;">📊 История</a>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 0.9em; color: #6c757d;">
+                            Прямая ссылка: <code>https://gps-speed-tracker.vercel.app/download/device_{safe_name}.txt</code>
                         </div>
                     </div>
                     '''
