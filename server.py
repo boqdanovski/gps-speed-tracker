@@ -64,7 +64,8 @@ class handler(BaseHTTPRequestHandler):
             # Разрешенные файлы для скачивания
             allowed_files = [
                 'all_devices.txt',
-                'GPS-Speed-69F-v2.0-With-Boat-Names.apk'
+                'GPS-Speed-69F-v3.0-With-Remote-Restart.apk',
+                'restart_signal.txt'
             ]
             
             # Проверяем, что файл разрешен для скачивания
@@ -73,7 +74,7 @@ class handler(BaseHTTPRequestHandler):
                 return
             
             # Определяем путь к файлу
-            if filename == 'GPS-Speed-69F-v2.0-With-Boat-Names.apk':
+            if filename == 'GPS-Speed-69F-v3.0-With-Remote-Restart.apk':
                 # APK файл находится в корне проекта
                 filepath = filename
             else:
@@ -159,6 +160,119 @@ class handler(BaseHTTPRequestHandler):
             print(f'❌ Ошибка при очистке: {e}')
             self.send_error(500, "Internal server error")
 
+    def handle_restart_tracking(self):
+        """Обработка команды перезапуска tracking"""
+        try:
+            # Создаем специальный файл-сигнал для перезапуска
+            restart_file = os.path.join(DATA_DIR, 'restart_signal.txt')
+            with open(restart_file, 'w') as f:
+                f.write(f"RESTART_TRACKING\n{get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            self.end_headers()
+            
+            html_content = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>🔄 Перезапуск Tracking - 69F СКОРОСТЬ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {{ 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }}
+        .container {{
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }}
+        .content {{
+            padding: 30px;
+        }}
+        .success {{
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }}
+        .info {{
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }}
+        .back-link {{
+            display: inline-block;
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin-top: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Перезапуск Tracking</h1>
+            <p>Команда отправлена устройствам</p>
+        </div>
+        <div class="content">
+            <div class="success">
+                ✅ <strong>Команда перезапуска отправлена!</strong><br>
+                Время: {get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')} (МСК)
+            </div>
+            
+            <div class="info">
+                <h3>📱 Что происходит:</h3>
+                <ul>
+                    <li>Создан файл-сигнал для перезапуска</li>
+                    <li>Приложения проверят этот файл при следующей отправке</li>
+                    <li>Tracking будет автоматически перезапущен</li>
+                    <li>Новые данные появятся через 1-2 минуты</li>
+                </ul>
+            </div>
+            
+            <div class="info">
+                <h3>🔗 Файл-сигнал:</h3>
+                <code>https://gps-speed-tracker.vercel.app/download/restart_signal.txt</code>
+            </div>
+            
+            <a href="/" class="back-link">← Вернуться к мониторингу</a>
+        </div>
+    </div>
+</body>
+</html>'''
+            
+            self.wfile.write(html_content.encode('utf-8'))
+            print(f'🔄 Команда перезапуска отправлена в {get_moscow_time().strftime("%Y-%m-%d %H:%M:%S")}')
+            
+        except Exception as e:
+            print(f'❌ Ошибка при отправке команды перезапуска: {e}')
+            self.send_error(500, "Internal server error")
+
     def do_GET(self):
         if self.path.startswith('/download/'):
             self.handle_file_download()
@@ -166,6 +280,10 @@ class handler(BaseHTTPRequestHandler):
             
         if self.path == '/cleanup':
             self.handle_cleanup()
+            return
+            
+        if self.path == '/restart_tracking':
+            self.handle_restart_tracking()
             return
             
         self.send_response(200)
@@ -257,8 +375,9 @@ class handler(BaseHTTPRequestHandler):
             <p>Отслеживание скорости всех устройств</p>
             <div style="margin-top: 15px;">
                 <a href="/cleanup" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🧹 Очистить старые данные</a>
+                <a href="/restart_tracking" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🔄 Перезапустить Tracking</a>
                 <a href="/download/all_devices.txt" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">📥 Скачать все данные</a>
-                <a href="/download/GPS-Speed-69F-v2.0-With-Boat-Names.apk" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📱 Скачать APK</a>
+                <a href="/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📱 Скачать APK</a>
             </div>
         </div>
         <div class="content">
@@ -269,7 +388,7 @@ class handler(BaseHTTPRequestHandler):
                 <h2>📁 Прямые ссылки на файлы</h2>
                 <div style="font-family: 'Courier New', monospace; font-size: 0.9em; background: white; padding: 15px; border-radius: 4px;">
                     <div style="margin-bottom: 10px;"><strong>📱 Android приложение:</strong></div>
-                    <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/GPS-Speed-69F-v2.0-With-Boat-Names.apk</div>
+                    <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk</div>
                     
                     <div style="margin-bottom: 10px;"><strong>📋 Общий лог всех устройств:</strong></div>
                     <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/all_devices.txt</div>
