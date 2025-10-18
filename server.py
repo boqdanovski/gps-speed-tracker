@@ -386,15 +386,48 @@ class handler(BaseHTTPRequestHandler):
             
             <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 30px;">
                 <h2>📁 Прямые ссылки на файлы</h2>
-                <div style="font-family: 'Courier New', monospace; font-size: 0.9em; background: white; padding: 15px; border-radius: 4px;">
-                    <div style="margin-bottom: 10px;"><strong>📱 Android приложение:</strong></div>
-                    <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk</div>
+                <div style="background: white; padding: 20px; border-radius: 8px;">
                     
-                    <div style="margin-bottom: 10px;"><strong>📋 Общий лог всех устройств:</strong></div>
-                    <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/all_devices.txt</div>
+                    <!-- APK файл -->
+                    <div style="margin-bottom: 25px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+                        <h3 style="margin: 0 0 10px 0; color: #1976d2;">📱 Android приложение</h3>
+                        <p style="margin: 5px 0; color: #666;">GPS Speed 69F v3.0 с удаленным перезапуском</p>
+                        <a href="/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk" 
+                           style="display: inline-block; background: #2196f3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+                            📥 Скачать APK
+                        </a>
+                        <span style="color: #666; font-size: 0.9em;">Размер: 4.7 MB</span>
+                    </div>
                     
-                    <div style="margin: 20px 0 10px 0;"><strong>📊 Файлы отдельных устройств:</strong></div>
-                    {self.get_device_links_html()}
+                    <!-- Общий лог -->
+                    <div style="margin-bottom: 25px; padding: 15px; background: #f3e5f5; border-radius: 8px; border-left: 4px solid #9c27b0;">
+                        <h3 style="margin: 0 0 10px 0; color: #7b1fa2;">📋 Общий лог всех устройств</h3>
+                        <p style="margin: 5px 0; color: #666;">Все данные о скорости в одном файле</p>
+                        <a href="/download/all_devices.txt" 
+                           style="display: inline-block; background: #9c27b0; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+                            📥 Скачать лог
+                        </a>
+                        <span style="color: #666; font-size: 0.9em;">Формат: текст</span>
+                    </div>
+                    
+                    <!-- Файлы устройств -->
+                    <div style="margin-bottom: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: #2e7d32;">📊 Файлы отдельных устройств</h3>
+                        {self.get_device_links_html()}
+                    </div>
+                    
+                    <!-- Служебные файлы -->
+                    <div style="margin-top: 25px; padding: 15px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #ff9800;">
+                        <h3 style="margin: 0 0 10px 0; color: #f57c00;">🔧 Служебные файлы</h3>
+                        <div style="margin: 10px 0;">
+                            <a href="/download/restart_signal.txt" 
+                               style="display: inline-block; background: #ff9800; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px; margin-bottom: 5px;">
+                                🔄 Файл-сигнал перезапуска
+                            </a>
+                            <span style="color: #666; font-size: 0.9em;">Для удаленного перезапуска tracking</span>
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
         </div>
@@ -410,28 +443,44 @@ class handler(BaseHTTPRequestHandler):
             device_files = []
             if os.path.exists(DATA_DIR):
                 device_files = [f for f in os.listdir(DATA_DIR) if f.startswith('device_') and f.endswith('.txt') and not f.endswith('_log.txt')]
-            
+
             if not device_files:
-                return '<div style="color: #6c757d; font-style: italic;">Нет файлов устройств</div>'
-            
+                return '<div style="color: #6c757d; font-style: italic; padding: 20px; text-align: center; background: #f8f9fa; border-radius: 5px;">Нет файлов устройств</div>'
+
             links_html = ""
             for filename in sorted(device_files):
                 device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
                 safe_name = device_name.replace(' ', '_')
+
+                # Получаем информацию о файле
+                device_file = os.path.join(DATA_DIR, filename)
+                log_file = os.path.join(DATA_DIR, f'device_{safe_name}_log.txt')
                 
+                device_size = os.path.getsize(device_file) if os.path.exists(device_file) else 0
+                log_size = os.path.getsize(log_file) if os.path.exists(log_file) else 0
+
                 links_html += f'''
-                <div style="margin-bottom: 8px;">
-                    <strong>{device_name}:</strong><br>
-                    <div style="color: #007bff; word-break: break-all; margin-left: 10px;">
-                        📄 Скорость: https://gps-speed-tracker.vercel.app/download/device_{safe_name}.txt<br>
-                        📊 История: https://gps-speed-tracker.vercel.app/download/device_{safe_name}_log.txt
+                <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #4caf50;">
+                    <h4 style="margin: 0 0 10px 0; color: #2e7d32;">🚤 {device_name}</h4>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <a href="/download/device_{safe_name}.txt" 
+                           style="display: inline-block; background: #4caf50; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 0.9em;">
+                            📄 Текущая скорость
+                        </a>
+                        <a href="/download/device_{safe_name}_log.txt" 
+                           style="display: inline-block; background: #8bc34a; color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 0.9em;">
+                            📊 История данных
+                        </a>
+                    </div>
+                    <div style="margin-top: 8px; color: #666; font-size: 0.8em;">
+                        Размеры: скорость {device_size} байт, история {log_size} байт
                     </div>
                 </div>
                 '''
-            
+
             return links_html
         except Exception as e:
-            return f'<div style="color: #dc3545;">Ошибка: {e}</div>'
+            return f'<div style="color: #dc3545; padding: 15px; background: #f8d7da; border-radius: 5px;">Ошибка: {e}</div>'
 
     def do_OPTIONS(self):
         self.send_response(200)
