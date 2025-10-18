@@ -31,9 +31,9 @@ class handler(BaseHTTPRequestHandler):
 
         print(f'📥 Получена скорость от {device_name} ({client_ip}): {speed_data} км/ч в {timestamp}')
 
-        # Сохраняем данные
+        # Сохраняем данные с временной меткой
         with open(device_file, 'w') as f:
-            f.write(speed_data)
+            f.write(f"{speed_data}\n{timestamp}")
 
         with open(device_log_file, 'a') as f:
             f.write(f'{timestamp} - {speed_data} км/ч\n')
@@ -183,7 +183,17 @@ class handler(BaseHTTPRequestHandler):
                 filepath = os.path.join(DATA_DIR, filename)
                 try:
                     with open(filepath, 'r') as f:
-                        speed = f.read().strip()
+                        file_content = f.read().strip()
+                    
+                    # Парсим содержимое файла (скорость и время)
+                    lines = file_content.split('\n')
+                    if len(lines) >= 2:
+                        speed = lines[0]
+                        data_timestamp = lines[1]
+                    else:
+                        speed = file_content
+                        data_timestamp = "Неизвестно"
+                    
                     device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
                     last_update = datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%Y-%m-%d %H:%M:%S')
                     safe_name = device_name.replace(' ', '_')
@@ -206,7 +216,12 @@ class handler(BaseHTTPRequestHandler):
                         <h2>📱 Устройство: {device_name}</h2>
                         <div style="color: {status_color}; font-weight: bold; margin-bottom: 10px;">{status_text}</div>
                         <div style="font-size: 2em; font-weight: bold; color: #28a745; margin: 10px 0;">{speed_display}</div>
-                        <div>Последнее обновление: {last_update}</div>
+                        <div style="font-size: 0.9em; color: #6c757d; margin: 5px 0;">
+                            ⏰ Время отправки: {data_timestamp}
+                        </div>
+                        <div style="font-size: 0.9em; color: #6c757d; margin: 5px 0;">
+                            📁 Обновление файла: {last_update}
+                        </div>
                         <div style="margin-top: 10px;">
                             <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость</a>
                             <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none; margin-right: 15px;">📊 История</a>
