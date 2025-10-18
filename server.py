@@ -342,12 +342,22 @@ class handler(BaseHTTPRequestHandler):
                         <div style="font-size: 0.9em; color: #6c757d; margin: 5px 0;">
                             ⏰ Последние данные: {data_timestamp} (МСК)
                         </div>
-                        <div style="margin-top: 10px;">
-                            <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; margin-right: 15px;">📄 Текущая скорость</a>
-                            <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none; margin-right: 15px;">📊 История</a>
+                        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                            <a href="/download/device_{safe_name}.txt" style="color: #007bff; text-decoration: none; padding: 8px 12px; background: #e3f2fd; border-radius: 5px; font-size: 0.9em;">📄 Текущая скорость</a>
+                            <a href="/download/device_{safe_name}_log.txt" style="color: #28a745; text-decoration: none; padding: 8px 12px; background: #e8f5e8; border-radius: 5px; font-size: 0.9em;">📊 История</a>
                         </div>
-                        <div style="margin-top: 5px; font-size: 0.9em; color: #6c757d;">
-                            📁 Файл скорости: <code>https://gps-speed-tracker.vercel.app/download/device_{safe_name}.txt</code>
+                        <div style="margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #dee2e6; border-radius: 5px;">
+                            <div style="font-size: 0.9em; color: #495057; margin-bottom: 8px;">📋 Копировать ссылки:</div>
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/device_{safe_name}.txt')" 
+                                        style="background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                    📄 Скопировать ссылку на скорость
+                                </button>
+                                <button onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/device_{safe_name}_log.txt')" 
+                                        style="background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em;">
+                                    📊 Скопировать ссылку на историю
+                                </button>
+                            </div>
                         </div>
                     </div>
                     '''
@@ -367,6 +377,47 @@ class handler(BaseHTTPRequestHandler):
         .content {{ padding: 30px; }}
         .status {{ text-align: center; color: #6c757d; margin-bottom: 20px; }}
     </style>
+    <script>
+        function copyToClipboard(text) {{
+            navigator.clipboard.writeText(text).then(function() {{
+                // Показываем уведомление об успешном копировании
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 12px 20px;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    z-index: 1000;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                `;
+                notification.textContent = '✅ Ссылка скопирована в буфер обмена!';
+                document.body.appendChild(notification);
+                
+                // Удаляем уведомление через 3 секунды
+                setTimeout(() => {{
+                    document.body.removeChild(notification);
+                }}, 3000);
+            }}).catch(function(err) {{
+                console.error('Ошибка копирования: ', err);
+                // Fallback для старых браузеров
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {{
+                    document.execCommand('copy');
+                    alert('Ссылка скопирована в буфер обмена!');
+                }} catch (err) {{
+                    alert('Не удалось скопировать ссылку. Скопируйте вручную: ' + text);
+                }}
+                document.body.removeChild(textArea);
+            }});
+        }}
+    </script>
 </head>
 <body>
     <div class="container">
