@@ -521,26 +521,26 @@ FORCE_RESTART:true
             print(f'❌ Ошибка в handle_create_excel: {e}')
             self.send_error(500, "Internal server error")
 
-        def do_GET(self):
-            if self.path.startswith('/download/'):
-                self.handle_file_download()
-                return
+    def do_GET(self):
+        if self.path.startswith('/download/'):
+            self.handle_file_download()
+            return
 
-            if self.path == '/cleanup':
-                self.handle_cleanup()
-                return
+        if self.path == '/cleanup':
+            self.handle_cleanup()
+            return
 
-            if self.path == '/restart_tracking':
-                self.handle_restart_tracking()
-                return
+        if self.path == '/restart_tracking':
+            self.handle_restart_tracking()
+            return
 
-            if self.path == '/create_excel':
-                self.handle_create_excel()
-                return
+        if self.path == '/create_excel':
+            self.handle_create_excel()
+            return
 
-            # Обновляем неактивные устройства прочерками
-            update_inactive_devices()
-            
+        # Обновляем неактивные устройства прочерками
+        update_inactive_devices()
+        
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
