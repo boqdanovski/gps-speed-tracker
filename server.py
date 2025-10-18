@@ -3,6 +3,8 @@ import json
 import os
 from datetime import datetime
 import pytz
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 # Создаем директорию для данных
 DATA_DIR = '/tmp/speed_data'
@@ -13,6 +15,87 @@ os.makedirs(DATA_DIR, exist_ok=True)
 def get_moscow_time():
     moscow_tz = pytz.timezone('Europe/Moscow')
     return datetime.now(moscow_tz)
+
+def create_excel_file():
+    """Создает Excel файл с данными о скорости всех устройств"""
+    try:
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "GPS Speed Data"
+        
+        # Заголовки
+        headers = ["Устройство", "Скорость (км/ч)", "Время"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+        
+        # Получаем все файлы устройств
+        device_files = []
+        if os.path.exists(DATA_DIR):
+            device_files = [f for f in os.listdir(DATA_DIR) if f.startswith('device_') and f.endswith('.txt') and not f.endswith('_log.txt')]
+        
+        row = 2
+        for filename in sorted(device_files):
+            device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
+            filepath = os.path.join(DATA_DIR, filename)
+            
+            try:
+                with open(filepath, 'r') as f:
+                    content = f.read().strip()
+                
+                lines = content.split('\n')
+                if len(lines) >= 2:
+                    speed = lines[0]
+                    timestamp_str = lines[1]
+                    
+                    # Парсим время
+                    try:
+                        dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                        time_only = dt.strftime('%H:%M:%S')
+                    except:
+                        time_only = timestamp_str
+                    
+                    # Записываем данные
+                    ws.cell(row=row, column=1, value=device_name)
+                    ws.cell(row=row, column=2, value=float(speed) if speed.replace('.', '').isdigit() else speed)
+                    ws.cell(row=row, column=3, value=time_only)
+                    
+                    # Цветовая кодировка по скорости
+                    if speed.replace('.', '').isdigit():
+                        speed_val = float(speed)
+                        if speed_val > 50:
+                            fill_color = "FF6B6B"  # Красный для высокой скорости
+                        elif speed_val > 20:
+                            fill_color = "FFE66D"  # Желтый для средней скорости
+                        else:
+                            fill_color = "4ECDC4"  # Зеленый для низкой скорости
+                        
+                        for col in range(1, 4):
+                            ws.cell(row=row, column=col).fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
+                    
+                    row += 1
+                    
+            except Exception as e:
+                print(f"Ошибка обработки файла {filename}: {e}")
+                continue
+        
+        # Настройка ширины колонок
+        ws.column_dimensions['A'].width = 20
+        ws.column_dimensions['B'].width = 15
+        ws.column_dimensions['C'].width = 12
+        
+        # Сохраняем файл
+        excel_file = os.path.join(DATA_DIR, 'gps_speed_data.xlsx')
+        wb.save(excel_file)
+        
+        print(f"✅ Excel файл создан: {excel_file}")
+        return excel_file
+        
+    except Exception as e:
+        print(f"❌ Ошибка создания Excel файла: {e}")
+        return None
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -65,7 +148,8 @@ class handler(BaseHTTPRequestHandler):
             allowed_files = [
                 'all_devices.txt',
                 'GPS-Speed-69F-v3.0-With-Remote-Restart.apk',
-                'restart_signal.txt'
+                'restart_signal.txt',
+                'gps_speed_data.xlsx'
             ]
             
             # Проверяем, что файл разрешен для скачивания
@@ -89,6 +173,11 @@ class handler(BaseHTTPRequestHandler):
             if filename.endswith('.apk'):
                 content_type = 'application/vnd.android.package-archive'
                 # Читаем APK как бинарный файл
+                with open(filepath, 'rb') as f:
+                    content = f.read()
+            elif filename.endswith('.xlsx'):
+                content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                # Читаем Excel как бинарный файл
                 with open(filepath, 'rb') as f:
                     content = f.read()
             else:
@@ -273,6 +362,70 @@ class handler(BaseHTTPRequestHandler):
             print(f'❌ Ошибка при отправке команды перезапуска: {e}')
             self.send_error(500, "Internal server error")
 
+    def handle_create_excel(self):
+        """Обработка создания Excel файла"""
+        try:
+            # Создаем Excel файл
+            excel_file = create_excel_file()
+            
+            if excel_file and os.path.exists(excel_file):
+                # Перенаправляем на скачивание
+                self.send_response(302)
+                self.send_header('Location', '/download/gps_speed_data.xlsx')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                print(f'📊 Excel файл создан и готов к скачиванию: {excel_file}')
+            else:
+                # Показываем ошибку
+                self.send_response(200)
+                self.send_header('Content-type', 'text/html; charset=utf-8')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                
+                html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>❌ Ошибка создания Excel - 69F СКОРОСТЬ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }}
+        .container {{ max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); overflow: hidden; }}
+        .header {{ background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 30px; text-align: center; }}
+        .content {{ padding: 30px; }}
+        .error {{ background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 15px; border-radius: 8px; margin-bottom: 20px; }}
+        .back-link {{ display: inline-block; background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 20px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>❌ Ошибка создания Excel</h1>
+            <p>Не удалось создать Excel файл</p>
+        </div>
+        <div class="content">
+            <div class="error">
+                <strong>Ошибка:</strong> Не удалось создать Excel файл с данными о скорости.
+                <br><br>
+                Возможные причины:
+                <ul>
+                    <li>Нет данных от устройств</li>
+                    <li>Ошибка обработки файлов</li>
+                    <li>Проблемы с библиотекой openpyxl</li>
+                </ul>
+            </div>
+            <a href="/" class="back-link">← Вернуться к мониторингу</a>
+        </div>
+    </div>
+</body>
+</html>'''
+                
+                self.wfile.write(html.encode('utf-8'))
+                print(f'❌ Ошибка создания Excel файла')
+                
+        except Exception as e:
+            print(f'❌ Ошибка в handle_create_excel: {e}')
+            self.send_error(500, "Internal server error")
+
     def do_GET(self):
         if self.path.startswith('/download/'):
             self.handle_file_download()
@@ -284,6 +437,10 @@ class handler(BaseHTTPRequestHandler):
             
         if self.path == '/restart_tracking':
             self.handle_restart_tracking()
+            return
+            
+        if self.path == '/create_excel':
+            self.handle_create_excel()
             return
             
         self.send_response(200)
@@ -427,6 +584,7 @@ class handler(BaseHTTPRequestHandler):
             <div style="margin-top: 15px;">
                 <a href="/cleanup" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🧹 Очистить старые данные</a>
                 <a href="/restart_tracking" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🔄 Перезапустить Tracking</a>
+                <a href="/create_excel" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">📊 Создать Excel</a>
                 <a href="/download/all_devices.txt" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">📥 Скачать все данные</a>
                 <a href="/download/GPS-Speed-69F-v3.0-With-Remote-Restart.apk" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📱 Скачать APK</a>
             </div>
@@ -465,6 +623,17 @@ class handler(BaseHTTPRequestHandler):
                     <div style="margin-bottom: 20px;">
                         <h3 style="margin: 0 0 15px 0; color: #2e7d32;">📊 Файлы отдельных устройств</h3>
                         {self.get_device_links_html()}
+                    </div>
+                    
+                    <!-- Excel файл -->
+                    <div style="margin-bottom: 25px; padding: 15px; background: #e8f5e8; border-radius: 8px; border-left: 4px solid #4caf50;">
+                        <h3 style="margin: 0 0 10px 0; color: #2e7d32;">📊 Excel отчет</h3>
+                        <p style="margin: 5px 0; color: #666;">Данные о скорости в формате Excel с цветовой кодировкой</p>
+                        <a href="/create_excel" 
+                           style="display: inline-block; background: #4caf50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-right: 10px;">
+                            📊 Создать Excel отчет
+                        </a>
+                        <span style="color: #666; font-size: 0.9em;">Устройство, скорость, время</span>
                     </div>
                     
                     <!-- Служебные файлы -->
