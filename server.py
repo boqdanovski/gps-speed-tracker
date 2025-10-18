@@ -16,6 +16,52 @@ def get_moscow_time():
     moscow_tz = pytz.timezone('Europe/Moscow')
     return datetime.now(moscow_tz)
 
+def update_inactive_devices():
+    """Обновляет txt файлы неактивных устройств прочерками"""
+    try:
+        current_time = get_moscow_time()
+        device_files = []
+        
+        if os.path.exists(DATA_DIR):
+            device_files = [f for f in os.listdir(DATA_DIR) if f.startswith('device_') and f.endswith('.txt') and not f.endswith('_log.txt')]
+        
+        for filename in device_files:
+            device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
+            filepath = os.path.join(DATA_DIR, filename)
+            
+            try:
+                with open(filepath, 'r') as f:
+                    content = f.read().strip()
+                
+                lines = content.split('\n')
+                if len(lines) >= 2:
+                    speed = lines[0]
+                    timestamp_str = lines[1]
+                    
+                    # Проверяем, не устарели ли данные (больше 10 секунд)
+                    try:
+                        data_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                        data_time = pytz.timezone('Europe/Moscow').localize(data_time)
+                        time_diff = (current_time - data_time).total_seconds()
+                        
+                        if time_diff > 10:
+                            # Устройство неактивно - обновляем файл прочерками
+                            with open(filepath, 'w') as f:
+                                f.write("—\n—")
+                            print(f"⚠️ Устройство {device_name} неактивно - обновлен файл прочерками")
+                    except:
+                        # Если не можем распарсить время - обновляем прочерками
+                        with open(filepath, 'w') as f:
+                            f.write("—\n—")
+                        print(f"⚠️ Устройство {device_name} - ошибка времени, обновлен файл прочерками")
+                        
+            except Exception as e:
+                print(f"❌ Ошибка обновления файла {filename}: {e}")
+                continue
+                
+    except Exception as e:
+        print(f"❌ Ошибка в update_inactive_devices: {e}")
+
 def create_excel_file():
     """Создает или обновляет Excel файл с данными о скорости всех устройств"""
     try:
@@ -57,6 +103,8 @@ def create_excel_file():
         
         # Заполняем данными
         row = 2
+        current_time = get_moscow_time()
+        
         for filename in sorted(device_files):
             device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
             filepath = os.path.join(DATA_DIR, filename)
@@ -70,22 +118,43 @@ def create_excel_file():
                     speed = lines[0]
                     timestamp_str = lines[1]
                     
-                    # Парсим время
+                    # Проверяем, не устарели ли данные (больше 10 секунд)
                     try:
-                        dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
-                        time_only = dt.strftime('%H:%M:%S')
+                        data_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                        data_time = pytz.timezone('Europe/Moscow').localize(data_time)
+                        time_diff = (current_time - data_time).total_seconds()
+                        
+                        if time_diff > 10:
+                            # Устройство не трекается - ставим прочерки
+                            ws.cell(row=row, column=1, value=device_name)
+                            ws.cell(row=row, column=2, value="—")
+                            ws.cell(row=row, column=3, value="—")
+                        else:
+                            # Устройство активно - записываем данные
+                            try:
+                                dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                                time_only = dt.strftime('%H:%M:%S')
+                            except:
+                                time_only = timestamp_str
+                            
+                            ws.cell(row=row, column=1, value=device_name)
+                            ws.cell(row=row, column=2, value=float(speed) if speed.replace('.', '').isdigit() else speed)
+                            ws.cell(row=row, column=3, value=time_only)
                     except:
-                        time_only = timestamp_str
-                    
-                    # Записываем данные
-                    ws.cell(row=row, column=1, value=device_name)
-                    ws.cell(row=row, column=2, value=float(speed) if speed.replace('.', '').isdigit() else speed)
-                    ws.cell(row=row, column=3, value=time_only)
+                        # Если не можем распарсить время - ставим прочерки
+                        ws.cell(row=row, column=1, value=device_name)
+                        ws.cell(row=row, column=2, value="—")
+                        ws.cell(row=row, column=3, value="—")
                     
                     row += 1
                     
             except Exception as e:
                 print(f"Ошибка обработки файла {filename}: {e}")
+                # Если файл поврежден - все равно добавляем устройство с прочерками
+                ws.cell(row=row, column=1, value=device_name)
+                ws.cell(row=row, column=2, value="—")
+                ws.cell(row=row, column=3, value="—")
+                row += 1
                 continue
         
         # Сохраняем файл
@@ -136,6 +205,9 @@ class handler(BaseHTTPRequestHandler):
             create_excel_file()
         except Exception as e:
             print(f"⚠️ Ошибка обновления Excel: {e}")
+
+        # Обновляем неактивные устройства прочерками
+        update_inactive_devices()
 
         # Отправляем ответ
         self.send_response(200)
@@ -449,22 +521,25 @@ FORCE_RESTART:true
             print(f'❌ Ошибка в handle_create_excel: {e}')
             self.send_error(500, "Internal server error")
 
-    def do_GET(self):
-        if self.path.startswith('/download/'):
-            self.handle_file_download()
-            return
-            
-        if self.path == '/cleanup':
-            self.handle_cleanup()
-            return
-            
-        if self.path == '/restart_tracking':
-            self.handle_restart_tracking()
-            return
-            
-        if self.path == '/create_excel':
-            self.handle_create_excel()
-            return
+        def do_GET(self):
+            if self.path.startswith('/download/'):
+                self.handle_file_download()
+                return
+
+            if self.path == '/cleanup':
+                self.handle_cleanup()
+                return
+
+            if self.path == '/restart_tracking':
+                self.handle_restart_tracking()
+                return
+
+            if self.path == '/create_excel':
+                self.handle_create_excel()
+                return
+
+            # Обновляем неактивные устройства прочерками
+            update_inactive_devices()
             
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
