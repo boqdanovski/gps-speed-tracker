@@ -2,11 +2,17 @@ from http.server import BaseHTTPRequestHandler
 import json
 import os
 from datetime import datetime
+import pytz
 
 # Создаем директорию для данных
 DATA_DIR = '/tmp/speed_data'
 ALL_DEVICES_FILE = os.path.join(DATA_DIR, 'all_devices.txt')
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# Функция для получения московского времени
+def get_moscow_time():
+    moscow_tz = pytz.timezone('Europe/Moscow')
+    return datetime.now(moscow_tz)
 
 class handler(BaseHTTPRequestHandler):
     def do_POST(self):
@@ -26,7 +32,7 @@ class handler(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         speed_data = post_data.decode('utf-8').strip()
 
-        now = datetime.now()
+        now = get_moscow_time()
         timestamp = now.strftime('%Y-%m-%d %H:%M:%S')
 
         print(f'📥 Получена скорость от {device_name} ({client_ip}): {speed_data} км/ч в {timestamp}')
@@ -195,11 +201,11 @@ class handler(BaseHTTPRequestHandler):
                         data_timestamp = "Неизвестно"
                     
                     device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
-                    last_update = datetime.fromtimestamp(os.path.getmtime(filepath)).strftime('%Y-%m-%d %H:%M:%S')
+                    last_update = datetime.fromtimestamp(os.path.getmtime(filepath), tz=pytz.timezone('Europe/Moscow')).strftime('%Y-%m-%d %H:%M:%S')
                     safe_name = device_name.replace(' ', '_')
                     
-                    current_time = datetime.now()
-                    last_update_time = datetime.fromtimestamp(os.path.getmtime(filepath))
+                    current_time = get_moscow_time()
+                    last_update_time = datetime.fromtimestamp(os.path.getmtime(filepath), tz=pytz.timezone('Europe/Moscow'))
                     time_diff = (current_time - last_update_time).total_seconds()
                     
                     if time_diff > 10:
@@ -260,7 +266,7 @@ class handler(BaseHTTPRequestHandler):
             </div>
         </div>
         <div class="content">
-            <div class="status">Обновлено: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+            <div class="status">Обновлено: {get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')} (МСК)</div>
             {devices_html}
             
             <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 30px;">
