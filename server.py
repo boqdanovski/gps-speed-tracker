@@ -51,6 +51,9 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.end_headers()
         self.wfile.write(f'Speed updated for {device_name}: {speed_data} km/h'.encode())
 
@@ -88,6 +91,9 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Content-Type', content_type)
             self.send_header('Content-Disposition', f'attachment; filename="{filename}"')
             self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
             self.end_headers()
             self.wfile.write(content.encode('utf-8'))
             
@@ -106,13 +112,16 @@ class handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        self.send_header('Pragma', 'no-cache')
+        self.send_header('Expires', '0')
         self.end_headers()
         
         html_content = f'''<!DOCTYPE html>
 <html>
 <head>
     <title>⛵ 69F СКОРОСТЬ - Все устройства</title>
-    <meta http-equiv="refresh" content="5">
+    <meta http-equiv="refresh" content="2">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {{ 
