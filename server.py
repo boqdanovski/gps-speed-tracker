@@ -54,19 +54,41 @@ class handler(BaseHTTPRequestHandler):
     def handle_file_download(self):
         try:
             filename = self.path.replace('/download/', '')
-            if not filename.startswith('device_') and filename != 'all_devices.txt' and not filename.endswith('_log.txt'):
+            
+            # Разрешенные файлы для скачивания
+            allowed_files = [
+                'all_devices.txt',
+                'GPS-Speed-69F-v2.0-With-Boat-Names.apk'
+            ]
+            
+            # Проверяем, что файл разрешен для скачивания
+            if not (filename.startswith('device_') and (filename.endswith('.txt') or filename.endswith('_log.txt'))) and filename not in allowed_files:
                 self.send_error(404, "File not found")
                 return
-                
-            filepath = os.path.join(DATA_DIR, filename)
+            
+            # Определяем путь к файлу
+            if filename == 'GPS-Speed-69F-v2.0-With-Boat-Names.apk':
+                # APK файл находится в корне проекта
+                filepath = filename
+            else:
+                # Остальные файлы в DATA_DIR
+                filepath = os.path.join(DATA_DIR, filename)
+            
             if not os.path.exists(filepath):
                 self.send_error(404, "File not found")
                 return
-                
-            with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read()
             
-            content_type = 'text/plain; charset=utf-8' if filename.endswith('.txt') else 'application/octet-stream'
+            # Определяем тип контента
+            if filename.endswith('.apk'):
+                content_type = 'application/vnd.android.package-archive'
+                # Читаем APK как бинарный файл
+                with open(filepath, 'rb') as f:
+                    content = f.read()
+            else:
+                content_type = 'text/plain; charset=utf-8'
+                # Читаем текстовые файлы
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    content = f.read().encode('utf-8')
             
             self.send_response(200)
             self.send_header('Content-Type', content_type)
@@ -76,7 +98,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_header('Pragma', 'no-cache')
             self.send_header('Expires', '0')
             self.end_headers()
-            self.wfile.write(content.encode('utf-8'))
+            self.wfile.write(content)
             
         except Exception as e:
             print(f'❌ Ошибка при скачивании файла: {e}')
@@ -218,7 +240,8 @@ class handler(BaseHTTPRequestHandler):
             <p>Отслеживание скорости всех устройств</p>
             <div style="margin-top: 15px;">
                 <a href="/cleanup" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">🧹 Очистить старые данные</a>
-                <a href="/download/all_devices.txt" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📥 Скачать все данные</a>
+                <a href="/download/all_devices.txt" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em; margin-right: 10px;">📥 Скачать все данные</a>
+                <a href="/download/GPS-Speed-69F-v2.0-With-Boat-Names.apk" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; text-decoration: none; border-radius: 5px; font-size: 0.9em;">📱 Скачать APK</a>
             </div>
         </div>
         <div class="content">
@@ -228,10 +251,13 @@ class handler(BaseHTTPRequestHandler):
             <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 30px;">
                 <h2>📁 Прямые ссылки на файлы</h2>
                 <div style="font-family: 'Courier New', monospace; font-size: 0.9em; background: white; padding: 15px; border-radius: 4px;">
-                    <div style="margin-bottom: 10px;"><strong>Общий лог всех устройств:</strong></div>
-                    <div style="color: #007bff; word-break: break-all;">https://gps-speed-tracker.vercel.app/download/all_devices.txt</div>
+                    <div style="margin-bottom: 10px;"><strong>📱 Android приложение:</strong></div>
+                    <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/GPS-Speed-69F-v2.0-With-Boat-Names.apk</div>
                     
-                    <div style="margin: 20px 0 10px 0;"><strong>Файлы отдельных устройств:</strong></div>
+                    <div style="margin-bottom: 10px;"><strong>📋 Общий лог всех устройств:</strong></div>
+                    <div style="color: #007bff; word-break: break-all; margin-bottom: 15px;">https://gps-speed-tracker.vercel.app/download/all_devices.txt</div>
+                    
+                    <div style="margin: 20px 0 10px 0;"><strong>📊 Файлы отдельных устройств:</strong></div>
                     {self.get_device_links_html()}
                 </div>
             </div>
