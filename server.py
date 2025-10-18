@@ -521,6 +521,85 @@ FORCE_RESTART:true
             print(f'❌ Ошибка в handle_create_excel: {e}')
             self.send_error(500, "Internal server error")
 
+    def handle_api_data(self):
+        """API endpoint для получения данных устройств в JSON формате"""
+        try:
+            # Обновляем неактивные устройства прочерками
+            update_inactive_devices()
+            
+            # Получаем данные устройств
+            device_files = []
+            if os.path.exists(DATA_DIR):
+                device_files = [f for f in os.listdir(DATA_DIR) if f.startswith('device_') and f.endswith('.txt') and not f.endswith('_log.txt')]
+            
+            devices_data = []
+            current_time = get_moscow_time()
+            
+            for filename in sorted(device_files):
+                filepath = os.path.join(DATA_DIR, filename)
+                try:
+                    with open(filepath, 'r') as f:
+                        file_content = f.read().strip()
+                    
+                    # Парсим содержимое файла
+                    lines = file_content.split('\n')
+                    if len(lines) >= 2:
+                        speed = lines[0]
+                        data_timestamp = lines[1]
+                    else:
+                        speed = file_content
+                        data_timestamp = "Неизвестно"
+                    
+                    device_name = filename.replace('device_', '').replace('.txt', '').replace('_', ' ')
+                    safe_name = device_name.replace(' ', '_')
+                    
+                    # Проверяем активность устройства
+                    last_update_time = datetime.fromtimestamp(os.path.getmtime(filepath), tz=pytz.timezone('Europe/Moscow'))
+                    time_diff = (current_time - last_update_time).total_seconds()
+                    
+                    is_active = time_diff <= 10
+                    status_text = "🟢 Device Tracking" if is_active else "🔴 Device not Tracking"
+                    status_color = "#28a745" if is_active else "#dc3545"
+                    speed_display = f"{speed} км/ч" if is_active else "—"
+                    
+                    devices_data.append({
+                        'name': device_name,
+                        'safe_name': safe_name,
+                        'speed': speed_display,
+                        'timestamp': data_timestamp,
+                        'is_active': is_active,
+                        'status_text': status_text,
+                        'status_color': status_color,
+                        'time_diff': time_diff
+                    })
+                    
+                except Exception as e:
+                    print(f"❌ Ошибка чтения {filename}: {e}")
+                    continue
+            
+            # Формируем JSON ответ
+            response_data = {
+                'timestamp': current_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'devices': devices_data,
+                'devices_count': len(devices_data)
+            }
+            
+            # Отправляем JSON ответ
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
+            
+            print(f'📊 API данные отправлены: {len(devices_data)} устройств')
+            
+        except Exception as e:
+            print(f'❌ Ошибка в handle_api_data: {e}')
+            self.send_error(500, "Internal server error")
+
     def do_GET(self):
         if self.path.startswith('/download/'):
             self.handle_file_download()
@@ -536,6 +615,10 @@ FORCE_RESTART:true
 
         if self.path == '/create_excel':
             self.handle_create_excel()
+            return
+
+        if self.path == '/api/data':
+            self.handle_api_data()
             return
 
         # Обновляем неактивные устройства прочерками
@@ -628,7 +711,6 @@ FORCE_RESTART:true
 <html>
 <head>
     <title>⛵ 69F СКОРОСТЬ</title>
-    <meta http-equiv="refresh" content="1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }}
@@ -636,8 +718,90 @@ FORCE_RESTART:true
         .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }}
         .content {{ padding: 30px; }}
         .status {{ text-align: center; color: #6c757d; margin-bottom: 20px; }}
+        .device-card {{ background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-bottom: 15px; }}
+        .device-name {{ font-size: 1.2em; font-weight: bold; margin-bottom: 10px; }}
+        .device-status {{ font-weight: bold; margin-bottom: 10px; }}
+        .device-speed {{ font-size: 2em; font-weight: bold; color: #28a745; margin: 10px 0; }}
+        .device-timestamp {{ font-size: 0.9em; color: #6c757d; margin: 5px 0; }}
+        .device-links {{ margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }}
+        .device-links a {{ color: #007bff; text-decoration: none; padding: 8px 12px; background: #e3f2fd; border-radius: 5px; font-size: 0.9em; }}
+        .copy-section {{ margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #dee2e6; border-radius: 5px; }}
+        .copy-buttons {{ display: flex; gap: 8px; flex-wrap: wrap; }}
+        .copy-btn {{ background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }}
+        .loading {{ text-align: center; color: #6c757d; font-style: italic; padding: 20px; }}
     </style>
     <script>
+        // Переменные для хранения данных
+        let devicesData = [];
+        let updateInterval;
+        
+        // Функция для загрузки данных с сервера
+        async function loadDevicesData() {{
+            try {{
+                const response = await fetch('/api/data');
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                devicesData = data.devices;
+                updateDevicesDisplay(data);
+            }} catch (error) {{
+                console.error('Ошибка загрузки данных:', error);
+                document.getElementById('devices-container').innerHTML = 
+                    '<div class="loading">❌ Ошибка загрузки данных. Проверьте подключение к серверу.</div>';
+            }}
+        }}
+        
+        // Функция для обновления отображения устройств
+        function updateDevicesDisplay(data) {{
+            const container = document.getElementById('devices-container');
+            const timestampElement = document.getElementById('timestamp');
+            
+            // Обновляем временную метку
+            if (timestampElement) {{
+                timestampElement.textContent = `Обновлено: ${{data.timestamp}} (МСК)`;
+            }}
+            
+            if (!data.devices || data.devices.length === 0) {{
+                container.innerHTML = '<div class="loading">Нет данных от устройств. Подключите Android приложения.</div>';
+                return;
+            }}
+            
+            // Генерируем HTML для устройств
+            let devicesHtml = '';
+            data.devices.forEach(device => {{
+                devicesHtml += `
+                    <div class="device-card">
+                        <div class="device-name">📱 Устройство: ${{device.name}}</div>
+                        <div class="device-status" style="color: ${{device.status_color}};">${{device.status_text}}</div>
+                        <div class="device-speed">${{device.speed}}</div>
+                        <div class="device-timestamp">⏰ Последние данные: ${{device.timestamp}} (МСК)</div>
+                        <div class="device-links">
+                            <a href="/download/device_${{device.safe_name}}.txt">📄 Текущая скорость</a>
+                            <a href="/download/device_${{device.safe_name}}_log.txt">📊 История</a>
+                            <a href="/download/gps_speed_data.xlsx">📊 Excel</a>
+                        </div>
+                        <div class="copy-section">
+                            <div style="font-size: 0.9em; color: #495057; margin-bottom: 8px;">📋 Копировать ссылки:</div>
+                            <div class="copy-buttons">
+                                <button class="copy-btn" onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/device_${{device.safe_name}}.txt')">
+                                    📄 Скопировать ссылку на скорость
+                                </button>
+                                <button class="copy-btn" onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/device_${{device.safe_name}}_log.txt')">
+                                    📊 Скопировать ссылку на историю
+                                </button>
+                                <button class="copy-btn" onclick="copyToClipboard('https://gps-speed-tracker.vercel.app/download/gps_speed_data.xlsx')">
+                                    📊 Скопировать ссылку на Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }});
+            
+            container.innerHTML = devicesHtml;
+        }}
+        
+        // Функция для копирования в буфер обмена
         function copyToClipboard(text) {{
             navigator.clipboard.writeText(text).then(function() {{
                 // Показываем уведомление об успешном копировании
@@ -677,6 +841,22 @@ FORCE_RESTART:true
                 document.body.removeChild(textArea);
             }});
         }}
+        
+        // Инициализация при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {{
+            // Загружаем данные сразу
+            loadDevicesData();
+            
+            // Устанавливаем интервал обновления каждую секунду
+            updateInterval = setInterval(loadDevicesData, 1000);
+        }});
+        
+        // Очистка интервала при закрытии страницы
+        window.addEventListener('beforeunload', function() {{
+            if (updateInterval) {{
+                clearInterval(updateInterval);
+            }}
+        }});
     </script>
 </head>
 <body>
@@ -692,8 +872,10 @@ FORCE_RESTART:true
             </div>
         </div>
         <div class="content">
-            <div class="status">Обновлено: {get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')} (МСК)</div>
-            {devices_html}
+            <div class="status" id="timestamp">Обновлено: {get_moscow_time().strftime('%Y-%m-%d %H:%M:%S')} (МСК)</div>
+            <div id="devices-container">
+                <div class="loading">Загрузка данных...</div>
+            </div>
             
             <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin-top: 30px;">
                 <h2>📁 Прямые ссылки на файлы</h2>
